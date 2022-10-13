@@ -41,12 +41,6 @@ def matrix_to_array(matrix):
     return matrix
 
 
-# def matrix_output(matrix):
-#     if type(matrix) != list:
-#         matrix = matrix.tolist()
-#     matrix = DataFrame(matrix)
-#     return str(matrix)
-
 def matrix_output(matrix):
     matrix2 = intify(np.array(matrix))
     s = [[str(e) for e in row] for row in matrix2]

@@ -89,61 +89,66 @@ async def columns_input(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=Condition.InputMatrix)
 async def matrix_input(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    if data["last_rows"] == 1 and data["last_columns"] == 1:
-        await message.answer("С такими недоматрицами не работаем, введите /reset и введите матрицу с "
-                             "минимум двумя элементами")
-    last_matrix = create_matrix(data["last_rows"], data["last_columns"], message.text)
-
-    if data["operation"] == "start":
-        await state.update_data(last_matrix=last_matrix)
-        await state.update_data(first_matrix=last_matrix)
-        await state.update_data(prev_matrix=last_matrix)
-
-        await message.answer("Ваша матрица <b><i>M</i></b>:")
-        await message.answer(matrix_output(last_matrix))
-
-        await bot.send_message(message.from_user.id, text="Какое действие вы хотели бы с ней произвести?",
-                               reply_markup=kb_client)
-
-        await Condition.WaitForChoice.set()
-
-    elif data["operation"] == "multiplication":
-        await state.update_data(last_matrix=last_matrix)
+    try:
         data = await state.get_data()
+        if data["last_rows"] == 1 and data["last_columns"] == 1:
+            await message.answer("С такими недоматрицами не работаем, введите /reset и введите матрицу с "
+                                 "минимум двумя элементами")
+        last_matrix = create_matrix(data["last_rows"], data["last_columns"], message.text)
+        if data["operation"] == "start":
+            await state.update_data(last_matrix=last_matrix)
+            await state.update_data(first_matrix=last_matrix)
+            await state.update_data(prev_matrix=last_matrix)
 
-        await message.answer("Ваши матрицы:")
-        await message.answer(matrix_output(data["prev_matrix"]))
-        await message.answer("x")
-        await message.answer(matrix_output(last_matrix))
-        await message.answer("=")
-        result = matrix_multiplication(data["prev_matrix"], data["last_matrix"])
-        await message.answer(matrix_output(result))
+            await message.answer("Ваша матрица <b><i>M</i></b>:")
+            await message.answer(matrix_output(last_matrix))
 
-        await state.update_data(last_matrix=result)
-        await state.update_data(last_rows=len(result))
-        await state.update_data(last_columns=len(result[0]))
+            await bot.send_message(message.from_user.id, text="Какое действие вы хотели бы с ней произвести?",
+                                   reply_markup=kb_client)
 
-        await Condition.Continue.set()
-        await bot.send_message(message.from_user.id, text="С какой матрицей работаем дальше?",
-                               reply_markup=kb_client_2)
+            await Condition.WaitForChoice.set()
 
-    elif data["operation"] == "sum":
-        await state.update_data(last_matrix=last_matrix)
+        elif data["operation"] == "multiplication":
+            await state.update_data(last_matrix=last_matrix)
+            data = await state.get_data()
+
+            await message.answer("Ваши матрицы:")
+            await message.answer(matrix_output(data["prev_matrix"]))
+            await message.answer("x")
+            await message.answer(matrix_output(last_matrix))
+            await message.answer("=")
+            result = matrix_multiplication(data["prev_matrix"], data["last_matrix"])
+            await message.answer(matrix_output(result))
+
+            await state.update_data(last_matrix=result)
+            await state.update_data(last_rows=len(result))
+            await state.update_data(last_columns=len(result[0]))
+
+            await Condition.Continue.set()
+            await bot.send_message(message.from_user.id, text="С какой матрицей работаем дальше?",
+                                   reply_markup=kb_client_2)
+
+        elif data["operation"] == "sum":
+            await state.update_data(last_matrix=last_matrix)
+            data = await state.get_data()
+
+            await message.answer("Ваши матрицы:")
+            await message.answer(matrix_output(data["prev_matrix"]))
+            await message.answer(data["sum_oper"])
+            await message.answer(matrix_output(last_matrix))
+            await message.answer("=")
+            result = matrix_sum(data["prev_matrix"], data["last_matrix"], data["sum_oper"])
+            await message.answer(matrix_output(result))
+            await state.update_data(last_matrix=result)
+
+            await Condition.Continue.set()
+            await bot.send_message(message.from_user.id, text="С какой матрицей работаем дальше?",
+                                   reply_markup=kb_client_2)
+    except Exception:
         data = await state.get_data()
-
-        await message.answer("Ваши матрицы:")
-        await message.answer(matrix_output(data["prev_matrix"]))
-        await message.answer(data["sum_oper"])
-        await message.answer(matrix_output(last_matrix))
-        await message.answer("=")
-        result = matrix_sum(data["prev_matrix"], data["last_matrix"], data["sum_oper"])
-        await message.answer(matrix_output(result))
-        await state.update_data(last_matrix=result)
-
-        await Condition.Continue.set()
-        await bot.send_message(message.from_user.id, text="С какой матрицей работаем дальше?",
-                               reply_markup=kb_client_2)
+        size = str(data["last_rows"]) + "x" + str(data["last_columns"])
+        await message.answer(f"Ошибка! Введите матрицу размером {size}")
+        await Condition.InputMatrix.set()
 
 
 @dp.message_handler(commands=["Жорданова"], state=Condition.WaitForChoice)
@@ -233,9 +238,8 @@ async def det(message: types.Message, state: FSMContext):
         if answer_exists:
             if all_nulls:
                 await message.answer("Если есть нулевая строка или столбец, определитель матрицы равен нулю.")
-                await message.answer("Определитель равен:")
-                await message.answer("0")
                 data["det"] = 0
+                result = 0
             else:
                 await message.answer("Матрица приведена к треугольному виду")
                 await message.answer("Приведенная к единичному виду матрица:")
@@ -257,7 +261,6 @@ async def det(message: types.Message, state: FSMContext):
 
             await bot.send_message(message.from_user.id, text="Какое действие вы хотели бы с ней произвести?",
                                    reply_markup=kb_client)
-
         else:
             await message.answer("Определитель не равен нулю, найдем обратную матрицу")
             await message.answer("Исходная матрица:")
@@ -317,12 +320,20 @@ async def jordan_out(message: types.Message, state: FSMContext):
 @dp.message_handler(commands=["Обратная"], state=Condition.WaitForChoice)
 async def jordan_out(message: types.Message, state: FSMContext):
     try:
-        await state.update_data(operation="Inverse")
         data = await state.get_data()
-        data["operation"] = "Inverse"
-        await bot.send_message(message.from_user.id, text="Проверим, равен ли нулю определитель",
-                               reply_markup=kb_client_4)
+        if data["last_rows"] != data["last_columns"]:
+            await message.answer("Ошибка!")
+            await message.answer("Обратную матрицу можно найти только у квадратных матриц.")
+            await message.answer("Ваша матрица <b><i>M</i></b>:")
+            await message.answer(matrix_output(data["last_matrix"]))
 
+            await bot.send_message(message.from_user.id, text="Какое действие вы хотели бы с ней произвести?",
+                                   reply_markup=kb_client)
+            await Condition.WaitForChoice.set()
+        else:
+            await state.update_data(operation="Inverse")
+            await bot.send_message(message.from_user.id, text="Проверим, равен ли нулю определитель",
+                                   reply_markup=kb_client_4)
     except Exception:
         data = await state.get_data()
         await message.answer("Ошибка!")
